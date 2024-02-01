@@ -38,10 +38,11 @@ for table in tables:
 # Define una ruta para obtener la lista de "tables"
 @app.route('/tables', methods=['GET'])
 def get_tables():
-    data=[]
+    values=[]
     for table in tables:
-        select_all(table, database_name='my_database.db')
-    return jsonify({'tables': tables, 'data':data})
+        value=select_all(table['name'], database_name='my_database.db')
+        values.append(value.to_json())
+    return jsonify({'tables': tables, 'data':values})
 # Define una ruta para crear una nueva "table"
 @app.route('/tables', methods=['POST'])
 def create_table():
@@ -50,14 +51,15 @@ def create_table():
         'name': request.json['name'],
         'source_file': request.json['source_file'],
         'description': request.json['description'],
-        'nrows': request.json['nrows']
+        'nrows': request.json['nrows'],
+        'all_rows':True
     }
     # Agrega la nueva "table" a la lista de "tables"
-    if table['all_rows']:    
-        df=pd.read_csv(table['source_file'],sep=',')
+    if new_table['all_rows']:    
+        df=pd.read_csv(new_table['source_file'],sep=',')
     else:
-        df=pd.read_csv(table['source_file'],sep=',',nrows=table['nrows'])
-    create_table_from_df(df, table['name'], database_name='my_database.db')
+        df=pd.read_csv(new_table['source_file'],sep=',',nrows=table['nrows'])
+    create_table_from_df(df, new_table['name'], database_name='my_database.db')
     tables.append(new_table)
     return jsonify({'table': new_table})
 
@@ -68,9 +70,8 @@ def get_table(name):
     table = [table for table in tables if table['name'] == name]
     if len(table) == 0:
         return jsonify({'error': 'Table not found'})
-    data=select_all(table, database_name='my_database.db')
-    return jsonify({'exist': True,'data':data})
-
+    data=select_all(table[0]['name'], database_name='my_database.db')
+    return jsonify({'exist': True,'data':data.to_json()})
 # Define una ruta para actualizar una "table" existente por nombre
 @app.route('/tables/<string:name>', methods=['PUT'])
 def update_table(name):
@@ -83,11 +84,12 @@ def update_table(name):
     table[0]['source_file'] = request.json.get('source_file', table[0]['source_file'])
     table[0]['description'] = request.json.get('description', table[0]['description'])
     table[0]['nrows'] = request.json.get('nrows', table[0]['nrows'])
-    if table['all_rows']:    
-        df=pd.read_csv(table['source_file'],sep=',')
+    table[0]['all_rows'] = request.json.get('all_rows', table[0]['all_rows'])
+    if table[0]['all_rows']:    
+        df=pd.read_csv(table[0]['source_file'],sep=',')
     else:
-        df=pd.read_csv(table['source_file'],sep=',',nrows=table['nrows']) 
-    update_table_from_df(df, table['name'], database_name='my_database.db')
+        df=pd.read_csv(table[0]['source_file'],sep=',',nrows=table[0]['nrows']) 
+    update_table_from_df(df, table[0]['name'], database_name='my_database.db')
     return jsonify({'table': table[0]})
 
 # Define una ruta para eliminar una "table" por nombre
@@ -99,7 +101,7 @@ def delete_table_r(name):
         return jsonify({'error': 'Table not found'})
     # Elimina la "table" de la lista de "tables"
     tables.remove(table[0])
-    delete_table(table['name'], database_name='my_database.db')
+    delete_table(table[0]['name'], database_name='my_database.db')
     return jsonify({'result': 'Table deleted'})
 
 # Ejecuta la aplicación si este script es el programa principal
